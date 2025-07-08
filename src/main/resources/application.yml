@@ -1,0 +1,99 @@
+spring:
+  application:
+    name: ziyara-backend
+
+  profiles:
+    active: dev
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+        jdbc:
+          batch_size: 25
+          batch_versioned_data: true
+        order_inserts: true
+        order_updates: true
+    show-sql: false
+    open-in-view: false
+
+  liquibase:
+    change-log: classpath:db/changelog/db.changelog-master.xml
+    enabled: true
+
+  cache:
+    type: redis
+    redis:
+      time-to-live: 3600000 # 1 hour
+      cache-null-values: false
+
+  data:
+    redis:
+      repositories:
+        enabled: false
+
+server:
+  port: 8080
+  error:
+    include-message: always
+    include-binding-errors: always
+    include-stacktrace: on_param
+  compression:
+    enabled: true
+    mime-types: text/html,text/xml,text/plain,text/css,text/javascript,application/javascript,application/json
+    min-response-size: 1024
+
+# JWT Configuration
+jwt:
+  expiration: 86400000 # 24 hours
+  refresh-expiration: 604800000 # 7 days
+  secret: ${JWT_SECRET:emlhcmEtc2VjcmV0LWtleS1mb3Itand0LXRva2VuLWdlbmVyYXRpb24tc2hvdWxkLWJlLXZlcnktbG9uZy1hbmQtc2VjdXJlLWluLXByb2R1Y3Rpb24=}
+
+# API Documentation
+springdoc:
+  api-docs:
+    path: /api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    operationsSorter: method
+    tagsSorter: alpha
+    disable-swagger-default-url: true
+  show-actuator: true
+
+# Application specific properties
+app:
+  cors:
+    allowed-origins:
+      - http://localhost:4200
+      - http://localhost:3000
+
+  file-upload:
+    max-size: 10485760 # 10MB
+    allowed-extensions: jpg,jpeg,png,gif,webp
+    upload-dir: ./uploads
+
+  pagination:
+    default-page-size: 20
+    max-page-size: 100
+
+  recommendation:
+    cache-ttl: 3600 # 1 hour
+    max-results: 20
+    default-radius-km: 50
+
+# Actuator
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+      base-path: /actuator
+  endpoint:
+    health:
+      show-details: when-authorized
+  health:
+    redis:
+      enabled: true
