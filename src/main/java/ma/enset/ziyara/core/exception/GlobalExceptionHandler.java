@@ -1,17 +1,16 @@
 package ma.enset.ziyara.core.exception;
 
 import lombok.extern.slf4j.Slf4j;
+import ma.enset.ziyara.core.dto.ApiResult;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.AccessDeniedException;
-import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.WebRequest;
 
-import java.time.LocalDateTime;
+import jakarta.validation.ConstraintViolationException;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -20,63 +19,37 @@ import java.util.Map;
 public class GlobalExceptionHandler {
 
     @ExceptionHandler(ResourceNotFoundException.class)
-    public ResponseEntity<ErrorResponse> handleResourceNotFoundException(
+    public ResponseEntity<ApiResult<Object>> handleResourceNotFoundException(
             ResourceNotFoundException ex, WebRequest request) {
-        ErrorResponse errorResponse = ErrorResponse.builder()
-                .timestamp(LocalDateTime.now())
-                .message(ex.getMessage())
-                .details(request.getDescription(false))
-                .build();
-        return new ResponseEntity<>(errorResponse, HttpStatus.NOT_FOUND);
+
+        log.error("Resource not found: {}", ex.getMessage());
+
+        ApiResult<Object> response = ApiResult.error(
+                ex.getMessage(),
+                "Resource not found"
+        );
+
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
     }
 
     @ExceptionHandler(BadRequestException.class)
-    public ResponseEntity<ErrorResponse> handleBadRequestException(
+    public ResponseEntity<ApiResult<Object>> handleBadRequestException(
             BadRequestException ex, WebRequest request) {
-        ErrorResponse errorResponse = ErrorResponse.builder()
-                .timestamp(LocalDateTime.now())
-                .message(ex.getMessage())
-                .details(request.getDescription(false))
-                .build();
-        return new ResponseEntity<>(errorResponse, HttpStatus.BAD_REQUEST);
-    }
 
-    @ExceptionHandler(UnauthorizedException.class)
-    public ResponseEntity<ErrorResponse> handleUnauthorizedException(
-            UnauthorizedException ex, WebRequest request) {
-        ErrorResponse errorResponse = ErrorResponse.builder()
-                .timestamp(LocalDateTime.now())
-                .message(ex.getMessage())
-                .details(request.getDescription(false))
-                .build();
-        return new ResponseEntity<>(errorResponse, HttpStatus.UNAUTHORIZED);
-    }
+        log.error("Bad request: {}", ex.getMessage());
 
-    @ExceptionHandler(BadCredentialsException.class)
-    public ResponseEntity<ErrorResponse> handleBadCredentialsException(
-            BadCredentialsException ex, WebRequest request) {
-        ErrorResponse errorResponse = ErrorResponse.builder()
-                .timestamp(LocalDateTime.now())
-                .message("Invalid username or password")
-                .details(request.getDescription(false))
-                .build();
-        return new ResponseEntity<>(errorResponse, HttpStatus.UNAUTHORIZED);
-    }
+        ApiResult<Object> response = ApiResult.error(
+                ex.getMessage(),
+                "Bad request"
+        );
 
-    @ExceptionHandler(AccessDeniedException.class)
-    public ResponseEntity<ErrorResponse> handleAccessDeniedException(
-            AccessDeniedException ex, WebRequest request) {
-        ErrorResponse errorResponse = ErrorResponse.builder()
-                .timestamp(LocalDateTime.now())
-                .message("Access denied")
-                .details(request.getDescription(false))
-                .build();
-        return new ResponseEntity<>(errorResponse, HttpStatus.FORBIDDEN);
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ResponseEntity<ErrorResponse> handleValidationExceptions(
-            MethodArgumentNotValidException ex, WebRequest request) {
+    public ResponseEntity<ApiResult<Object>> handleValidationExceptions(
+            MethodArgumentNotValidException ex) {
+
         Map<String, String> errors = new HashMap<>();
         ex.getBindingResult().getAllErrors().forEach((error) -> {
             String fieldName = ((FieldError) error).getField();
@@ -84,24 +57,43 @@ public class GlobalExceptionHandler {
             errors.put(fieldName, errorMessage);
         });
 
-        ErrorResponse errorResponse = ErrorResponse.builder()
-                .timestamp(LocalDateTime.now())
+        log.error("Validation failed: {}", errors);
+
+        ApiResult<Object> response = ApiResult.<Object>builder()
+                .success(false)
                 .message("Validation failed")
-                .details(request.getDescription(false))
-                .validationErrors(errors)
+                .error("Invalid input data")
+                .data(errors)
                 .build();
-        return new ResponseEntity<>(errorResponse, HttpStatus.BAD_REQUEST);
+
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+    }
+
+    @ExceptionHandler(ConstraintViolationException.class)
+    public ResponseEntity<ApiResult<Object>> handleConstraintViolationException(
+            ConstraintViolationException ex) {
+
+        log.error("Constraint violation: {}", ex.getMessage());
+
+        ApiResult<Object> response = ApiResult.error(
+                ex.getMessage(),
+                "Validation constraint violated"
+        );
+
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
     }
 
     @ExceptionHandler(Exception.class)
-    public ResponseEntity<ErrorResponse> handleGlobalException(
+    public ResponseEntity<ApiResult<Object>> handleGlobalException(
             Exception ex, WebRequest request) {
+
         log.error("Unexpected error occurred", ex);
-        ErrorResponse errorResponse = ErrorResponse.builder()
-                .timestamp(LocalDateTime.now())
-                .message("An unexpected error occurred")
-                .details(request.getDescription(false))
-                .build();
-        return new ResponseEntity<>(errorResponse, HttpStatus.INTERNAL_SERVER_ERROR);
+
+        ApiResult<Object> response = ApiResult.error(
+                "An unexpected error occurred",
+                "Internal server error"
+        );
+
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
     }
 }

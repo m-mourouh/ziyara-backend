@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ziyara - File Upload Test</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+
+        .container {
+            background: white;
+            border-radius: 10px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 30px;
+        }
+
+        .upload-section {
+            margin: 30px 0;
+            padding: 20px;
+            border: 2px dashed #ddd;
+            border-radius: 8px;
+            background: #f9f9f9;
+        }
+
+        .upload-section h3 {
+            margin-top: 0;
+            color: #555;
+        }
+
+        input[type="file"] {
+            margin: 10px 0;
+            padding: 10px;
+            width: 100%;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+
+        input[type="text"] {
+            margin: 10px 0;
+            padding: 10px;
+            width: 100%;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+
+        button {
+            background: #667eea;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px 0;
+        }
+
+        button:hover {
+            background: #5a6fd8;
+        }
+
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        .result {
+            margin: 20px 0;
+            padding: 15px;
+            border-radius: 4px;
+            font-family: monospace;
+            white-space: pre-wrap;
+        }
+
+        .success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+
+        .error {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+
+        .images-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+
+        .image-item {
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            overflow: hidden;
+            background: white;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .image-item img {
+            width: 100%;
+            height: 150px;
+            object-fit: cover;
+        }
+
+        .image-info {
+            padding: 10px;
+            font-size: 12px;
+            color: #666;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            color: #667eea;
+            font-style: italic;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>🇲🇦 Ziyara File Upload Test</h1>
+
+    <!-- Single File Upload -->
+    <div class="upload-section">
+        <h3>📷 Upload Single Image</h3>
+        <input type="file" id="singleFile" accept="image/*">
+        <input type="text" id="category" placeholder="Category (e.g., destinations, profiles)" value="destinations">
+        <button onclick="uploadSingle()">Upload Single File</button>
+        <div class="loading" id="singleLoading">Uploading...</div>
+    </div>
+
+    <!-- Multiple Files Upload -->
+    <div class="upload-section">
+        <h3>📷📷 Upload Multiple Images</h3>
+        <input type="file" id="multipleFiles" accept="image/*" multiple>
+        <input type="text" id="multipleCategory" placeholder="Category" value="destinations">
+        <button onclick="uploadMultiple()">Upload Multiple Files</button>
+        <div class="loading" id="multipleLoading">Uploading...</div>
+    </div>
+
+    <!-- Destination Image Upload -->
+    <div class="upload-section">
+        <h3>🏛️ Upload to Specific Destination</h3>
+        <input type="number" id="destinationId" placeholder="Destination ID (e.g., 1, 2, 3...)" value="1">
+        <input type="file" id="destinationFile" accept="image/*">
+        <input type="text" id="imageCaption" placeholder="Image caption (optional)">
+        <button onclick="uploadToDestination()">Upload to Destination</button>
+        <div class="loading" id="destinationLoading">Uploading...</div>
+    </div>
+
+    <!-- Results -->
+    <div id="results"></div>
+
+    <!-- Uploaded Images Display -->
+    <div id="imagesDisplay" class="images-grid"></div>
+</div>
+
+<script>
+    const API_BASE = 'http://localhost:8080/api';
+
+    function showLoading(elementId) {
+        document.getElementById(elementId).style.display = 'block';
+    }
+
+    function hideLoading(elementId) {
+        document.getElementById(elementId).style.display = 'none';
+    }
+
+    function showResult(message, isError = false) {
+        const resultsDiv = document.getElementById('results');
+        const resultDiv = document.createElement('div');
+        resultDiv.className = `result ${isError ? 'error' : 'success'}`;
+        resultDiv.textContent = JSON.stringify(message, null, 2);
+        resultsDiv.appendChild(resultDiv);
+
+        // Scroll to result
+        resultDiv.scrollIntoView({ behavior: 'smooth' });
+    }
+
+    function displayImage(fileUrl, fileName) {
+        const imagesDiv = document.getElementById('imagesDisplay');
+        const imageItem = document.createElement('div');
+        imageItem.className = 'image-item';
+
+        const fullUrl = `${API_BASE}/files/serve${fileUrl}`;
+
+        imageItem.innerHTML = `
+                <img src="${fullUrl}" alt="${fileName}" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22200%22 height=%22150%22><rect width=%22100%%22 height=%22100%%22 fill=%22%23ddd%22/><text x=%2250%%22 y=%2250%%22 text-anchor=%22middle%22 dy=%22.3em%22>Image not found</text></svg>'">
+                <div class="image-info">
+                    <strong>${fileName}</strong><br>
+                    <small>${fileUrl}</small>
+                </div>
+            `;
+
+        imagesDiv.appendChild(imageItem);
+    }
+
+    async function uploadSingle() {
+        const fileInput = document.getElementById('singleFile');
+        const categoryInput = document.getElementById('category');
+
+        if (!fileInput.files[0]) {
+            showResult('Please select a file', true);
+            return;
+        }
+
+        showLoading('singleLoading');
+
+        const formData = new FormData();
+        formData.append('file', fileInput.files[0]);
+        formData.append('category', categoryInput.value);
+
+        try {
+            const response = await fetch(`${API_BASE}/files/upload`, {
+                method: 'POST',
+                body: formData
+            });
+
+            const result = await response.json();
+            hideLoading('singleLoading');
+
+            if (response.ok) {
+                showResult(result);
+                displayImage(result.data.fileUrl, result.data.fileName);
+            } else {
+                showResult(result, true);
+            }
+        } catch (error) {
+            hideLoading('singleLoading');
+            showResult('Upload failed: ' + error.message, true);
+        }
+    }
+
+    async function uploadMultiple() {
+        const fileInput = document.getElementById('multipleFiles');
+        const categoryInput = document.getElementById('multipleCategory');
+
+        if (!fileInput.files.length) {
+            showResult('Please select files', true);
+            return;
+        }
+
+        showLoading('multipleLoading');
+
+        const formData = new FormData();
+        for (let file of fileInput.files) {
+            formData.append('files', file);
+        }
+        formData.append('category', categoryInput.value);
+
+        try {
+            const response = await fetch(`${API_BASE}/files/upload/multiple`, {
+                method: 'POST',
+                body: formData
+            });
+
+            const result = await response.json();
+            hideLoading('multipleLoading');
+
+            if (response.ok) {
+                showResult(result);
+                result.data.forEach(item => {
+                    displayImage(item.fileUrl, item.fileName);
+                });
+            } else {
+                showResult(result, true);
+            }
+        } catch (error) {
+            hideLoading('multipleLoading');
+            showResult('Upload failed: ' + error.message, true);
+        }
+    }
+
+    async function uploadToDestination() {
+        const destinationIdInput = document.getElementById('destinationId');
+        const fileInput = document.getElementById('destinationFile');
+        const captionInput = document.getElementById('imageCaption');
+
+        if (!fileInput.files[0]) {
+            showResult('Please select a file', true);
+            return;
+        }
+
+        if (!destinationIdInput.value) {
+            showResult('Please enter a destination ID', true);
+            return;
+        }
+
+        showLoading('destinationLoading');
+
+        const formData = new FormData();
+        formData.append('file', fileInput.files[0]);
+        if (captionInput.value) {
+            formData.append('caption', captionInput.value);
+        }
+
+        try {
+            const response = await fetch(`${API_BASE}/destinations/${destinationIdInput.value}/images/upload/single`, {
+                method: 'POST',
+                body: formData
+            });
+
+            const result = await response.json();
+            hideLoading('destinationLoading');
+
+            if (response.ok) {
+                showResult(result);
+                displayImage(result.data.fileUrl, result.data.fileName);
+            } else {
+                showResult(result, true);
+            }
+        } catch (error) {
+            hideLoading('destinationLoading');
+            showResult('Upload failed: ' + error.message, true);
+        }
+    }
+
+    // Load some test images on page load
+    window.onload = function() {
+        console.log('Ziyara File Upload Test Page Loaded');
+        console.log('API Base URL:', API_BASE);
+    };
+</script>
+</body>
+</html>
